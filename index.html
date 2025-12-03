@@ -59,7 +59,7 @@
     <div class="top-bar">
         <div class="title-box">
             <h1>QuickShots Pro</h1>
-            <p>修正完毕：视野锥与机头方向一致</p>
+            <p>全域3D一键短片演示</p>
         </div>
     </div>
 
@@ -99,11 +99,17 @@
         controls.maxDistance = 2000;
         controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
-        // --- 环境 ---
-        const gridHelper = new THREE.GridHelper(4000, 200, 0xd0dbe6, 0xffffff);
-        scene.add(gridHelper);
-        const plane = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
-        plane.rotation.x = -Math.PI / 2; plane.position.y = -0.2; plane.receiveShadow = true;
+        // --- 环境 (已移除 GridHelper) ---
+        // 这里删除了 gridHelper 的代码
+        
+        // 地面平面 (保留，用于接收阴影)
+        const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(10000, 10000), 
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0 }) // 纯白哑光地面
+        );
+        plane.rotation.x = -Math.PI / 2; 
+        plane.position.y = -0.2; 
+        plane.receiveShadow = true;
         scene.add(plane);
 
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.7);
@@ -128,7 +134,7 @@
         ring.rotation.x = -Math.PI / 2; ring.position.y = 0.1;
         targetGroup.add(ring);
 
-        // --- 无人机系统 (机头方向与视野修正) ---
+        // --- 无人机系统 ---
         const droneGroup = new THREE.Group();
         scene.add(droneGroup);
         droneGroup.scale.set(1.8, 1.8, 1.8);
@@ -165,42 +171,28 @@
             prop.userData = { isProp: true };
         });
 
-        // 绿色机头指示块 (移到正前方 Z > 0)
+        // 绿色机头指示
         const noseMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-        noseMesh.position.set(0, 0, 3.2); // Z+ 为前
+        noseMesh.position.set(0, 0, 3.2); 
         droneGroup.add(noseMesh);
-
-        // 机头小尖尖
         const coneMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 8, 16), new THREE.MeshBasicMaterial({color: 0x00ff00, transparent:true, opacity:0.3}));
-        coneMesh.rotation.x = Math.PI/2; // 旋转90度指向 Z+
-        coneMesh.position.set(0, 0, 8); // 伸向前方
+        coneMesh.rotation.x = Math.PI/2; coneMesh.position.set(0, 0, 8);
         droneGroup.add(coneMesh);
 
         // 云台相机
         const gimbal = new THREE.Group();
-        gimbal.position.set(0, -1.2, 2.5); // 位于前方
+        gimbal.position.set(0, -1.2, 2.5);
         droneGroup.add(gimbal);
-        
         const camBox = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 2), darkMat);
         gimbal.add(camBox);
-        
         const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.5), new THREE.MeshBasicMaterial({color:0x111111}));
-        lens.rotation.x = Math.PI/2; lens.position.z = 1; // 镜头朝前
+        lens.rotation.x = Math.PI/2; lens.position.z = 1;
         camBox.add(lens);
         
-        // --- 视野锥修正核心 ---
-        // ConeGeometry 默认指向 +Y (上)
-        // 目标：让它从小端(原点)发散向 +Z (前)
-        // 步骤：
-        // 1. translate(0, -12.5, 0) -> 把中心下移，使尖端(Tip)位于原点(0,0,0)，底端(Base)位于(0, -25, 0)
-        // 2. rotateX(-Math.PI/2) -> 绕X轴逆时针旋转90度。
-        //    +Y 轴 变为 +Z 轴? No. 
-        //    根据右手定则，-Y (底端所在轴) 将会被旋转到 +Z 轴。
-        //    结果：尖端在原点，底端指向 +Z。正确！
+        // 视野锥 (从镜头出发，向前)
         const coneGeo = new THREE.ConeGeometry(0.4, 25, 32, 1, true);
         coneGeo.translate(0, -12.5, 0); 
         coneGeo.rotateX(-Math.PI/2); 
-        
         const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.15, depthWrite: false, side: THREE.DoubleSide}));
         cone.scale.set(10, 10, 10);
         gimbal.add(cone);
@@ -251,7 +243,6 @@
                 if (state.mode === 'dronie') {
                     const dist = 150 * state.t;
                     const height = 80 * state.t;
-                    // 正确逻辑：对准目标，往后(+Z)退
                     dronePos.copy(state.startPos).add(new THREE.Vector3(0, height, dist));
                     droneGroup.lookAt(state.targetLookAt);
                     gimbal.rotation.set(0,0,0);
@@ -354,4 +345,3 @@
     </script>
 </body>
 </html>
-
